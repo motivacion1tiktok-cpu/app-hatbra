@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import { 
   Briefcase, 
   Clock, 
@@ -13,11 +13,6 @@ import {
   AlertCircle 
 } from "lucide-react";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 interface ActiveProject {
   id: string;
   total_amount: number;
@@ -25,10 +20,17 @@ interface ActiveProject {
   description: string;
   status: string;
   created_at: string;
+  requests?: {
+    id: string;
+    title: string;
+    category: string;
+    location: string;
+  } | null;
 }
 
 export default function ProyectosPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [projects, setProjects] = useState<ActiveProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -38,16 +40,29 @@ export default function ProyectosPage() {
       setLoading(true);
       setErrorMsg(null);
 
-      // Cargar presupuestos aceptados
+      // Cargar presupuestos aceptados con JOIN a la solicitud
       const { data, error } = await supabase
         .from("quotes")
-        .select("*")
+        .select(`
+          id,
+          total_amount,
+          estimated_days,
+          description,
+          status,
+          created_at,
+          requests (
+            id,
+            title,
+            category,
+            location
+          )
+        `)
         .eq("status", "accepted")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      setProjects((data as ActiveProject[]) || []);
+      setProjects((data as unknown as ActiveProject[]) || []);
     } catch (err: any) {
       console.error("Error al cargar proyectos:", err);
       setErrorMsg(`No se pudieron cargar los proyectos activos: ${err.message}`);
@@ -64,7 +79,7 @@ export default function ProyectosPage() {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       {/* Encabezado */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Proyectos en Curso</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Proyectos en Curso 🏗️</h1>
         <p className="text-sm text-slate-500">
           Supervisa el estado, los hitos de ejecución y la comunicación de tus reformas activas.
         </p>
@@ -111,10 +126,15 @@ export default function ProyectosPage() {
                     <TrendingUp className="w-3.5 h-3.5" /> En Ejecución
                   </span>
                   <h2 className="text-lg font-bold text-slate-900">
-                    Reforma Activa
+                    {project.requests?.title || "Reforma Activa"}
                   </h2>
+                  {project.requests?.category && (
+                    <span className="text-xs text-slate-400 block font-medium">
+                      {project.requests.category} {project.requests.location ? `• ${project.requests.location}` : ""}
+                    </span>
+                  )}
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <span className="text-xs text-slate-400 block">Presupuesto</span>
                   <span className="text-xl font-extrabold text-slate-900">
                     {project.total_amount.toLocaleString("es-ES", {
