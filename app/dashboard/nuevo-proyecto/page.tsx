@@ -3,160 +3,208 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { HardHat, Send, MapPin, Euro, FileText, CheckCircle2 } from 'lucide-react';
+import {
+  FolderPlus,
+  Send,
+  Building2,
+  Euro,
+  FileText,
+  MapPin,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
 
 export default function NuevoProyectoPage() {
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('bano');
-  const [budgetEstimate, setBudgetEstimate] = useState('');
-  const [location, setLocation] = useState('');
-  const [description, setDescription] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
   const router = useRouter();
   const supabase = createClient();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('Reforma Integral');
+  const [location, setLocation] = useState('');
+  const [budget, setBudget] = useState('');
+  const [description, setDescription] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
+    setErrorMsg(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+      // 1. Obtener sesión activa para capturar el client_id
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      alert('Debes estar autenticado para crear un proyecto.');
-      setLoading(false);
-      return;
-    }
+      if (userError || !user) {
+        throw new Error('Debes iniciar sesión para publicar una solicitud.');
+      }
 
-    const { error } = await supabase.from('projects').insert([
-      {
-        user_id: user.id,
-        title,
+      // 2. Insertar en la tabla public.requests
+      const { error: insertError } = await supabase.from('requests').insert({
+        client_id: user.id,
+        title: title.trim(),
         category,
-        budget_estimate: budgetEstimate ? parseFloat(budgetEstimate) : null,
-        location,
-        description,
-      },
-    ]);
+        location: location.trim(),
+        budget_estimated: budget ? parseFloat(budget) : null,
+        description: description.trim(),
+        status: 'open',
+      });
 
-    setLoading(false);
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
 
-    if (error) {
-      console.error('Error al crear el proyecto:', error.message);
-      alert('Hubo un error al guardar el proyecto. Inténtalo de nuevo.');
-    } else {
-      setSubmitted(true);
+      setSuccess(true);
       setTimeout(() => {
-        router.push('/dashboard/services');
-      }, 2000);
+        router.push('/dashboard/requests');
+      }, 1500);
+    } catch (err: any) {
+      console.error('Error al crear proyecto:', err);
+      setErrorMsg(err.message || 'Ocurrió un error inesperado al enviar la solicitud.');
+    } finally {
+      setSubmitting(false);
     }
-  };
+  }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 p-4">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <HardHat className="w-7 h-7 text-slate-900" />
-          Publicar Nueva Reforma u Obra
-        </h1>
-        <p className="text-slate-500 text-sm">
-          Describe tu proyecto para recibir propuestas y presupuestos de profesionales certificados.
-        </p>
-      </div>
-
-      {submitted ? (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl p-8 text-center space-y-3">
-          <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto animate-bounce" />
-          <h2 className="text-xl font-bold">¡Proyecto Publicado con Éxito!</h2>
-          <p className="text-sm text-emerald-700">
-            Redirigiendo al panel de proyectos...
+    <div className="max-w-4xl mx-auto space-y-8 p-4">
+      {/* Cabecera */}
+      <div className="bg-slate-900 text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden">
+        <div className="relative z-10 space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-amber-500 text-xs font-medium">
+            <FolderPlus className="w-3.5 h-3.5 text-amber-500" /> Solicitud de Reforma
+          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+            Publicar Nuevo Proyecto 🏗️
+          </h1>
+          <p className="text-slate-300 text-xs md:text-sm max-w-xl">
+            Describe los detalles de la obra o reforma que deseas realizar. Los profesionales homologados por HATBRA evaluarán tu solicitud y te enviarán sus propuestas.
           </p>
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700">Título de la Obra / Reforma</label>
+        <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Formulario */}
+      <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm space-y-6">
+        {errorMsg && (
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-3 text-xs text-rose-800 font-medium">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-xs text-emerald-800 font-medium">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>¡Proyecto publicado con éxito! Redirigiendo a tus solicitudes...</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Título */}
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-slate-400" />
+              Título del Proyecto *
+            </label>
             <input
               type="text"
               required
+              placeholder="Ej: Reforma integral de baño principal y cambio de fontanería"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ej. Reforma integral de cuarto de baño principal"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
+              className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700">Categoría</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
-              >
-                <option value="bano">Cuarto de Baño</option>
-                <option value="cocina">Cocina</option>
-                <option value="fontaneria">Fontanería e Instalaciones</option>
-                <option value="electricidad">Electricidad</option>
-                <option value="reforma_integral">Reforma Integral</option>
-                <option value="pintura_placa">Pintura y Placa de Yeso (Drywall)</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                <Euro className="w-3.5 h-3.5" /> Presupuesto Estimado (€)
-              </label>
-              <input
-                type="number"
-                value={budgetEstimate}
-                onChange={(e) => setBudgetEstimate(e.target.value)}
-                placeholder="Ej. 3500"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
-              />
-            </div>
+          {/* Categoría */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+              Categoría
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+            >
+              <option value="Reforma Integral">Reforma Integral</option>
+              <option value="Baños">Baños</option>
+              <option value="Cocinas">Cocinas</option>
+              <option value="Fontanería">Fontanería</option>
+              <option value="Electricidad">Electricidad</option>
+              <option value="Pintura y Acabados">Pintura y Acabados</option>
+              <option value="Albañilería y Pladur">Albañilería y Pladur</option>
+            </select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5" /> Ubicación de la Obra
+          {/* Ubicación */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-slate-400" />
+              Ubicación / Municipio *
             </label>
             <input
               type="text"
+              required
+              placeholder="Ej: Santa Cruz de Tenerife"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="Ej. Santa Cruz de Tenerife, Tenerife"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
+              className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-              <FileText className="w-3.5 h-3.5" /> Detalles y Descripción del Trabajo
+          {/* Presupuesto Estimado */}
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Euro className="w-3.5 h-3.5 text-slate-400" />
+              Presupuesto Máximo Estimado (€)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              placeholder="Ej: 4500 (Opcional)"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+            />
+          </div>
+
+          {/* Descripción detallada */}
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-slate-400" />
+              Descripción Detallada de los Trabajos *
             </label>
             <textarea
-              rows={4}
               required
+              rows={5}
+              placeholder="Detalla las medidas, materiales preferidos o requisitos especiales para que los profesionales preparen un presupuesto ajustado..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe los materiales deseados, plazos o detalles específicos de la obra..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
+              className="w-full px-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 resize-none"
             />
           </div>
+        </div>
 
-          <div className="pt-3 border-t border-slate-100 flex justify-end">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-semibold text-sm rounded-xl hover:bg-slate-800 transition disabled:opacity-50 shadow-sm"
-            >
-              {loading ? 'Publicando...' : 'Publicar Solicitud'}
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </form>
-      )}
+        {/* Botón Acción */}
+        <div className="flex justify-end pt-4 border-t border-slate-100">
+          <button
+            type="submit"
+            disabled={submitting || success}
+            className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+          >
+            <Send className="w-4 h-4" />
+            {submitting ? 'Publicando...' : 'Publicar Solicitud'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
