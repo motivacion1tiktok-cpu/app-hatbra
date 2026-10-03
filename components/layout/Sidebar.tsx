@@ -2,73 +2,96 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAVIGATION, ROLE_LABELS, Role } from "@/app/dashboard/navigation";
+import { X } from "lucide-react";
+import type { Role } from "../../types/role";
+import { getNavForRole } from "@/lib/roles";
 
-const ROLES: Role[] = ["owner", "admin", "client", "professional"];
-
-interface SidebarProps {
-  role: Role;
-  userName?: string;
+export interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
+  userRole?: Role;
 }
 
-export function Sidebar({ role, userName, open, onClose }: SidebarProps) {
+export function Sidebar({ open = false, onClose, userRole = "cliente" }: SidebarProps) {
   const pathname = usePathname();
-  
-  // Defensa: rol inesperado -> nav de client. La seguridad vive en RLS/proxy.
-  const roleKey: Role = (ROLES as string[]).includes(role) ? (role as Role) : "client";
-  const sections = NAVIGATION[roleKey];
+  const items = getNavForRole(userRole);
 
   return (
-    <aside className="w-full md:w-64 bg-white border-r border-slate-200 flex flex-col justify-between p-4 shadow-sm min-h-screen">
-      <div className="space-y-6">
-        {/* Logo corporativo HATBRA */}
-        <div className="flex items-center gap-3 px-2 py-1">
-          <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center font-extrabold text-white text-lg shadow-sm">
-            H
-          </div>
-          <div>
-            <span className="font-extrabold text-lg text-slate-900 tracking-tight">HATBRA</span>
-            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-              {ROLE_LABELS[roleKey]}
-            </p>
-          </div>
-        </div>
+    <>
+      {/* Backdrop para móviles */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm"
+          onClick={onClose}
+        />
+      )}
 
-        {/* Mapeo dinámico de secciones según el rol */}
-        <nav className="space-y-4">
-          {sections.map((section) => (
-            <div key={section.title} className="space-y-1">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">
-                {section.title}
+      {/* Sidebar Principal */}
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 transform transition-transform duration-200 ease-in-out flex flex-col justify-between ${
+          open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        <div className="p-6 space-y-6">
+          {/* Header del Sidebar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white font-black text-lg shadow-sm">
+                H
               </div>
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.exact
-                  ? pathname === item.href
-                  : pathname.startsWith(item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={onClose}
-                    className={`flex items-center gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition ${
-                      isActive
-                        ? "bg-brand-50 text-brand-600 font-extrabold"
-                        : "text-slate-700 hover:bg-slate-50 hover:text-brand-600"
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 ${isActive ? "text-brand-600" : "text-slate-400"}`} />
-                    {item.label}
-                  </Link>
-                );
-              })}
+              <div>
+                <h1 className="font-extrabold text-slate-900 tracking-tight text-base leading-none">
+                  HATBRA
+                </h1>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 capitalize">
+                  {userRole}
+                </span>
+              </div>
             </div>
-          ))}
-        </nav>
-      </div>
-    </aside>
+
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="md:hidden p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Menú Dinámico según Rol */}
+          <nav className="space-y-1">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 mb-2">
+              Gestión
+            </p>
+            {items.map((item) => {
+              const isActive = pathname === item.href;
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                    isActive
+                      ? "bg-brand-50 text-brand-600"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <Icon
+                    className={`w-4 h-4 ${
+                      isActive ? "text-brand-600" : "text-slate-400"
+                    }`}
+                  />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      </aside>
+    </>
   );
 }
