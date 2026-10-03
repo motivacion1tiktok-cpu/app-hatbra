@@ -1,8 +1,6 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
 import {
   HardHat,
   Calculator,
@@ -20,79 +18,62 @@ import {
 interface Project {
   id: string;
   title: string;
-  category: string;
-  budget_estimate: number | null;
+  category?: string;
+  budget_estimate?: number | null;
+  budget_estimated?: number | null;
   status: string;
-  location: string | null;
+  location?: string | null;
   created_at: string;
 }
 
-export default function DashboardPage() {
-  const [userName, setUserName] = useState<string>('Usuario');
-  const [userRole, setUserRole] = useState<string>('client');
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+export default async function DashboardPage() {
+  const supabase = await createClient();
 
-  const supabase = createClient();
+  // 1. Obtener sesión/usuario autenticado
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  useEffect(() => {
-    async function loadDashboardData() {
-      setLoading(true);
-      setFetchError(null);
+  if (userError || !user) {
+    redirect('/auth/login');
+  }
 
-      try {
-        // 1. Obtener sesión de usuario
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+  // 2. Obtener datos del perfil
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, role')
+    .eq('id', user.id)
+    .maybeSingle();
 
-        if (userError || !user) {
-          setLoading(false);
-          return;
-        }
+  const userName = profile?.full_name || user.user_metadata?.full_name || 'Usuario';
+  const userRole = profile?.role || 'client';
 
-        // 2. Obtener perfil completo desde profiles
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, role')
-          .eq('id', user.id)
-          .maybeSingle();
+  // 3. Consultar solicitudes pertenecientes al user_id autenticado
+  let fetchError: string | null = null;
+  let projects: Project[] = [];
+  let activeRequestsCount = 0;
 
-        if (profile) {
-          if (profile.full_name) setUserName(profile.full_name);
-          if (profile.role) setUserRole(profile.role);
-        } else if (user.user_metadata?.full_name) {
-          setUserName(user.user_metadata.full_name);
-        }
+  const { data: projectsData, error: projectsError } = await supabase
+    .from('requests')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
 
-        // 3. Consultar obras/proyectos
-        const { data: projectsData, error: projectsError } = await supabase
-          .from('requests')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (projectsError) {
-          console.error('Error al consultar proyectos:', projectsError);
-          setFetchError(projectsError.message);
-        } else if (projectsData) {
-          setProjects(projectsData);
-        }
-      } catch (err: any) {
-        console.error('Error inesperado en Dashboard:', err);
-        setFetchError('Ocurrió un error al cargar la información.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadDashboardData();
-  }, []);
+  if (projectsError) {
+    console.error('Error al consultar proyectos en Server Component:', projectsError);
+    fetchError = projectsError.message;
+  } else if (projectsData) {
+    projects = projectsData as Project[];
+    // Conteo de solicitudes activas (se consideran activas las que no están archivadas/canceladas/rechazadas)
+    const activeStatuses = ['draft', 'pending', 'published', 'in_progress', 'active', 'open'];
+    activeRequestsCount = projects.filter(
+      (p) => activeStatuses.includes(p.status?.toLowerCase()) || !p.status
+    ).length;
+  }
 
   const totalPresupuestado = projects.reduce(
-    (sum, p) => sum + (p.budget_estimate || 0),
+    (sum, p) => sum + (p.budget_estimate || p.budget_estimated || 0),
     0
   );
 
@@ -135,15 +116,16 @@ export default function DashboardPage() {
 
       {/* Tarjetas de Estadísticas Rápidas */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Contador Real de Solicitudes Activas */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Obras Solicitadas</span>
-            <HardHat className="w-4 h-4 text-slate-700" />
+            <span>Solicitudes Activas</span>
+            <HardHat className="w-4 h-4 text-brand-600" />
           </div>
           <div className="text-2xl font-extrabold text-slate-900">
-            {loading ? '0' : projects.length}
+            {activeRequestsCount}
           </div>
-          <p className="text-[11px] text-slate-400">Proyectos activos o en revisión</p>
+          <p className="text-[11px] text-slate-400">Obras y solicitudes activas</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
@@ -152,7 +134,7 @@ export default function DashboardPage() {
             <Euro className="w-4 h-4 text-brand-600" />
           </div>
           <div className="text-2xl font-extrabold text-slate-900">
-            {loading ? '0 €' : `${totalPresupuestado.toLocaleString('es-ES')} €`}
+            {totalPresupuestado.toLocaleString('es-ES')} €
           </div>
           <p className="text-[11px] text-slate-400">Inversión total acumulada</p>
         </div>
@@ -160,10 +142,10 @@ export default function DashboardPage() {
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
             <span>Respuestas / Mensajes</span>
-            <MessageSquare className="w-4 h-4 text-blue-600" />
+            <MessageSquare className="w-4 h-4 text-brand-600" />
           </div>
           <div className="text-2xl font-extrabold text-slate-900">Activo</div>
-          <p className="text-[11px] text-slate-400">Canal directo de chat</p>
+          <p className="text-[11px] text-slate-400">Canal directo de comunicación</p>
         </div>
       </div>
 
@@ -184,11 +166,7 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {loading ? (
-            <div className="py-8 text-center text-xs text-slate-400">
-              Cargando datos del panel...
-            </div>
-          ) : fetchError ? (
+          {fetchError ? (
             <div className="py-6 px-4 bg-amber-50 border border-amber-200 rounded-xl text-center space-y-2">
               <AlertCircle className="w-5 h-5 text-amber-600 mx-auto" />
               <p className="text-xs text-amber-800 font-medium">
@@ -208,32 +186,35 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {projects.map((p) => (
-                <div
-                  key={p.id}
-                  className="p-4 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl transition flex items-center justify-between gap-4"
-                >
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded-md">
-                      {p.category || 'Reforma'}
-                    </span>
-                    <h3 className="font-bold text-slate-900 text-sm">{p.title}</h3>
-                    <p className="text-[11px] text-slate-500 flex items-center gap-2">
-                      <Clock className="w-3 h-3" />
-                      {new Date(p.created_at).toLocaleDateString('es-ES')}
-                    </p>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <div className="font-bold text-slate-900 text-sm">
-                      {p.budget_estimate ? `${p.budget_estimate.toLocaleString('es-ES')} €` : 'N/A'}
+              {projects.slice(0, 5).map((p) => {
+                const amount = p.budget_estimate || p.budget_estimated || null;
+                return (
+                  <div
+                    key={p.id}
+                    className="p-4 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl transition flex items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-white border border-slate-200 text-slate-700 rounded-md">
+                        {p.category || 'Reforma'}
+                      </span>
+                      <h3 className="font-bold text-slate-900 text-sm">{p.title}</h3>
+                      <p className="text-[11px] text-slate-500 flex items-center gap-2">
+                        <Clock className="w-3 h-3" />
+                        {new Date(p.created_at).toLocaleDateString('es-ES')}
+                      </p>
                     </div>
-                    <span className="text-[11px] font-medium text-brand-600 flex items-center gap-1 justify-end">
-                      <CheckCircle2 className="w-3 h-3" /> Activo
-                    </span>
+
+                    <div className="text-right shrink-0">
+                      <div className="font-bold text-slate-900 text-sm">
+                        {amount ? `${amount.toLocaleString('es-ES')} €` : 'N/A'}
+                      </div>
+                      <span className="text-[11px] font-medium text-brand-600 flex items-center gap-1 justify-end">
+                        <CheckCircle2 className="w-3 h-3 text-brand-600" /> {p.status || 'Activo'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -268,7 +249,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-center justify-between">
                 <span className="font-bold text-xs text-slate-900 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-blue-600" />
+                  <MessageSquare className="w-4 h-4 text-brand-600" />
                   Chat en Tiempo Real
                 </span>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
