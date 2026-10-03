@@ -1,15 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import { getProfile } from "@/lib/supabase/profiles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import {
-  Home,
-  PlusCircle,
-  FolderKanban,
-  GitCompare,
-  Briefcase,
-  MessageSquare,
-  LogOut,
-} from "lucide-react";
+import { NAVIGATION, ROLE_LABELS, Role } from "@/app/dashboard/navigation";
+import { LogOut } from "lucide-react";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({
   children,
@@ -27,20 +23,19 @@ export default async function DashboardLayout({
     redirect("/auth/login");
   }
 
-  // Obtener perfil para conocer el rol
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user.id)
-    .single();
+  // Obtener perfil del usuario
+  const profile = await getProfile();
 
-  const userRole = profile?.role || "client";
-  const userName = profile?.full_name || user.email?.split("@")[0] || "Usuario";
+  const userRole: Role = (profile?.role as Role) || "client";
+  const userName = profile?.full_name?.trim() || user.email?.split("@")[0] || "Usuario";
+
+  // Obtener la navegación según el rol
+  const sections = NAVIGATION[userRole] || NAVIGATION["client"];
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
       {/* Sidebar Lateral */}
-      <aside className="w-full md:w-64 bg-white border-r border-slate-200 flex flex-col justify-between p-4 shadow-sm">
+      <aside className="w-full md:w-64 bg-white border-r border-slate-200 flex flex-col justify-between p-4 shadow-sm min-h-screen">
         <div className="space-y-6">
           {/* Logo HATBRA */}
           <div className="flex items-center gap-3 px-2 py-1">
@@ -50,58 +45,33 @@ export default async function DashboardLayout({
             <div>
               <span className="font-extrabold text-lg text-slate-900 tracking-tight">HATBRA</span>
               <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                {userRole === "professional" ? "Panel Profesional" : "Panel Cliente"}
+                {ROLE_LABELS[userRole] || "Cliente"}
               </p>
             </div>
           </div>
 
           {/* Menú Principal */}
-          <nav className="space-y-1">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-2">
-              Principal
-            </div>
-
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-600 rounded-xl transition"
-            >
-              <Home className="w-4 h-4 text-slate-400" />
-              Inicio
-            </Link>
-
-            {/* Enlaces para Clientes */}
-            <Link
-              href="/dashboard/nuevo-proyecto"
-              className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-600 rounded-xl transition"
-            >
-              <PlusCircle className="w-4 h-4 text-slate-400" />
-              Nueva solicitud
-            </Link>
-
-            <Link
-              href="/dashboard/comparador"
-              className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-600 rounded-xl transition"
-            >
-              <GitCompare className="w-4 h-4 text-slate-400" />
-              Comparador de ofertas
-            </Link>
-
-            {/* Enlaces para Profesionales */}
-            <Link
-              href="/dashboard/presupuestos"
-              className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-600 rounded-xl transition"
-            >
-              <Briefcase className="w-4 h-4 text-slate-400" />
-              Oportunidades / Presupuestos
-            </Link>
-
-            <Link
-              href="/dashboard/mensajes"
-              className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-600 rounded-xl transition"
-            >
-              <MessageSquare className="w-4 h-4 text-slate-400" />
-              Mensajes
-            </Link>
+          <nav className="space-y-4">
+            {sections.map((section) => (
+              <div key={section.title} className="space-y-1">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">
+                  {section.title}
+                </div>
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-brand-600 rounded-xl transition"
+                    >
+                      <Icon className="w-4 h-4 text-slate-400" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
         </div>
 
