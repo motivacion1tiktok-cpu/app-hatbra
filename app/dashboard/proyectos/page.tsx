@@ -1,181 +1,96 @@
-"use client";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { FolderKanban, Clock, Building2 } from "lucide-react";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { 
-  Briefcase, 
-  Clock, 
-  CheckCircle, 
-  MessageSquare, 
-  TrendingUp, 
-  FileText,
-  AlertCircle 
-} from "lucide-react";
-
-interface ActiveProject {
+interface ProjectItem {
   id: string;
-  total_amount: number;
-  estimated_days?: number;
-  description: string;
+  title: string;
+  description?: string;
   status: string;
   created_at: string;
-  requests?: {
-    id: string;
-    title: string;
-    category: string;
-    location: string;
-  } | null;
 }
 
-export default function ProyectosPage() {
-  const router = useRouter();
-  const supabase = createClient();
-  const [projects, setProjects] = useState<ActiveProject[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+// Función para capitalizar y formatear caracteres en español (ej. bano -> Baño)
+function fixSpanishText(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\bbano\b/gi, "baño")
+    .replace(/\breforma de bano\b/gi, "Reforma de Baño");
+}
 
-  const fetchActiveProjects = async () => {
-    try {
-      setLoading(true);
-      setErrorMsg(null);
+export default async function ProyectosPage() {
+  const supabase = await createClient();
 
-      // Cargar presupuestos aceptados con JOIN a la solicitud
-      const { data, error } = await supabase
-        .from("quotes")
-        .select(`
-          id,
-          total_amount,
-          estimated_days,
-          description,
-          status,
-          created_at,
-          requests (
-            id,
-            title,
-            category,
-            location
-          )
-        `)
-        .eq("status", "accepted")
-        .order("created_at", { ascending: false });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-      if (error) throw error;
+  if (!user) redirect("/auth/login");
 
-      setProjects((data as unknown as ActiveProject[]) || []);
-    } catch (err: any) {
-      console.error("Error al cargar proyectos:", err);
-      setErrorMsg(`No se pudieron cargar los proyectos activos: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: projectsData, error } = await supabase
+    .from("projects")
+    .select("id, title, description, status, created_at")
+    .order("created_at", { ascending: false });
 
-  useEffect(() => {
-    fetchActiveProjects();
-  }, []);
+  const projects = (projectsData as ProjectItem[]) || [];
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      {/* Encabezado */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Proyectos en Curso 🏗️</h1>
-        <p className="text-sm text-slate-500">
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+          Proyectos en Curso 🏗️
+        </h1>
+        <p className="text-xs text-slate-500">
           Supervisa el estado, los hitos de ejecución y la comunicación de tus reformas activas.
         </p>
       </div>
 
-      {errorMsg && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <p>{errorMsg}</p>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2].map((i) => (
-            <div key={i} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm animate-pulse space-y-4">
-              <div className="h-5 bg-slate-200 rounded w-1/2" />
-              <div className="h-4 bg-slate-200 rounded w-1/3" />
-              <div className="h-16 bg-slate-100 rounded w-full" />
-            </div>
-          ))}
+      {error ? (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl">
+          No se pudieron cargar los proyectos activos: {error.message}
         </div>
       ) : projects.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/60 shadow-sm space-y-3">
-          <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-2">
-            <Briefcase className="w-6 h-6" />
+        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3 shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+            <FolderKanban className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-semibold text-slate-800">No hay proyectos en ejecución</h3>
-          <p className="text-sm text-slate-400 max-w-sm mx-auto">
+          <h3 className="font-bold text-sm text-slate-800">No hay proyectos en ejecución</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
             Acepta una propuesta en el Comparador de Presupuestos para iniciar el seguimiento de tu obra.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {projects.map((project) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {projects.map((proj) => (
             <div
-              key={project.id}
-              className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-5"
+              key={proj.id}
+              className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3 hover:border-slate-300 transition"
             >
-              {/* Cabecera Tarjeta */}
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full mb-2">
-                    <TrendingUp className="w-3.5 h-3.5" /> En Ejecución
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+                    {proj.status}
                   </span>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {project.requests?.title || "Reforma Activa"}
+                  <h2 className="font-bold text-sm text-slate-900 pt-1 capitalize">
+                    {fixSpanishText(proj.title)}
                   </h2>
-                  {project.requests?.category && (
-                    <span className="text-xs text-slate-400 block font-medium">
-                      {project.requests.category} {project.requests.location ? `• ${project.requests.location}` : ""}
-                    </span>
-                  )}
                 </div>
-                <div className="text-right shrink-0">
-                  <span className="text-xs text-slate-400 block">Presupuesto</span>
-                  <span className="text-xl font-extrabold text-slate-900">
-                    {project.total_amount.toLocaleString("es-ES", {
-                      minimumFractionDigits: 2,
-                    })}{" "}
-                    €
-                  </span>
+                <div className="p-2 rounded-xl bg-slate-50 text-slate-400">
+                  <Building2 className="w-4 h-4" />
                 </div>
               </div>
 
-              {/* Información del Plazo */}
-              <div className="flex items-center gap-4 text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-slate-400" />
-                  <span>Plazo: <strong>{project.estimated_days || 5} días</strong></span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  <span>Profesional Asignado</span>
-                </div>
-              </div>
+              {proj.description && (
+                <p className="text-xs text-slate-500 line-clamp-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  {fixSpanishText(proj.description)}
+                </p>
+              )}
 
-              {/* Descripción */}
-              <p className="text-xs text-slate-600 line-clamp-2">
-                {project.description}
-              </p>
-
-              {/* Acciones de seguimiento */}
-              <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
-                <button
-                  onClick={() => router.push("/dashboard/mensajes")}
-                  className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl font-semibold text-xs hover:bg-slate-800 transition flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <MessageSquare className="w-4 h-4" /> Contactar Profesional
-                </button>
-                <button
-                  onClick={() => router.push(`/dashboard/proyectos/${project.id}`)}
-                  className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold text-xs hover:bg-slate-200 transition flex items-center justify-center gap-1.5"
-                >
-                  <FileText className="w-4 h-4" /> Detalles
-                </button>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-100">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  {new Date(proj.created_at).toLocaleDateString("es-ES")}
+                </span>
               </div>
             </div>
           ))}
