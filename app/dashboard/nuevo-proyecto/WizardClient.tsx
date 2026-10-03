@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CategoryOption } from "./page";
-import { Building2, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { AttachmentsField } from "@/components/ui/AttachmentsField";
+import { ArrowRight, ArrowLeft, CheckCircle2, Paperclip } from "lucide-react";
 
 interface WizardClientProps {
   categories: CategoryOption[];
@@ -18,6 +19,7 @@ export function WizardClient({ categories }: WizardClientProps) {
   const [selectedCategory, setSelectedCategory] = useState(categories[0]?.name || "");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -41,7 +43,9 @@ export function WizardClient({ categories }: WizardClientProps) {
     setLoading(true);
     setErrorMsg(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       setErrorMsg("Sesión expirada. Por favor, inicia sesión de nuevo.");
@@ -49,12 +53,14 @@ export function WizardClient({ categories }: WizardClientProps) {
       return;
     }
 
+    // Inserción en la tabla requests guardando la columna attachments (JSONB)
     const { error } = await supabase.from("requests").insert([
       {
         client_id: user.id,
         category: selectedCategory,
         title,
         description,
+        attachments,
         status: "open",
       },
     ]);
@@ -72,7 +78,7 @@ export function WizardClient({ categories }: WizardClientProps) {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-          Nueva Solicitud de Reforma 🏗️️
+          Nueva Solicitud de Reforma 🏗
         </h1>
         <p className="text-xs text-slate-500">
           Publica los detalles de tu proyecto para recibir presupuestos de profesionales verificados.
@@ -134,11 +140,11 @@ export function WizardClient({ categories }: WizardClientProps) {
           </div>
         )}
 
-        {/* Paso 2: Detalles de la obra */}
+        {/* Paso 2: Detalles de la obra + Campo de Adjuntos */}
         {step === 2 && (
           <div className="space-y-4">
             <h2 className="font-extrabold text-slate-900 text-sm">Describe las características del trabajo</h2>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Título corto</label>
                 <input
@@ -159,6 +165,12 @@ export function WizardClient({ categories }: WizardClientProps) {
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-brand-600"
                 />
+              </div>
+
+              {/* Subida de Archivos Adjuntos */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Archivos y Planos de la obra</label>
+                <AttachmentsField value={attachments} onChange={setAttachments} />
               </div>
             </div>
 
@@ -185,8 +197,8 @@ export function WizardClient({ categories }: WizardClientProps) {
         {step === 3 && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <h2 className="font-extrabold text-slate-900 text-sm">Resumen de la solicitud</h2>
-            
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 text-xs">
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3 text-xs">
               <div>
                 <span className="font-bold text-slate-500">Categoría:</span>
                 <p className="font-extrabold text-slate-900">{selectedCategory}</p>
@@ -199,6 +211,21 @@ export function WizardClient({ categories }: WizardClientProps) {
                 <span className="font-bold text-slate-500">Descripción:</span>
                 <p className="text-slate-700 mt-0.5">{description}</p>
               </div>
+              {attachments.length > 0 && (
+                <div>
+                  <span className="font-bold text-slate-500 flex items-center gap-1">
+                    <Paperclip className="w-3.5 h-3.5 text-slate-400" />
+                    Adjuntos ({attachments.length}):
+                  </span>
+                  <ul className="mt-1 space-y-1">
+                    {attachments.map((p) => (
+                      <li key={p} className="text-[11px] text-slate-600 truncate bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                        {p.split("/").pop()}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 flex items-center justify-between">
