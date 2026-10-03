@@ -1,21 +1,30 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 
-export interface AcceptQuoteResult {
-  ok: boolean;
-  error?: string;
-}
-
-export async function acceptQuote(quoteId: string): Promise<AcceptQuoteResult> {
-  if (!quoteId) return { ok: false, error: "Presupuesto no válido." };
-
+export async function acceptQuoteAction(quoteId: string) {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("accept_quote", { p_quote_id: quoteId });
 
-  if (error) return { ok: false, error: error.message };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sesión no válida o expirada." };
+  }
+
+  // Invoca la RPC atómica accept_quote corregida con client_id
+  const { error } = await supabase.rpc("accept_quote", {
+    p_quote_id: quoteId,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
 
   revalidatePath("/dashboard/comparador");
-  return { ok: true };
+  revalidatePath("/dashboard/proyectos");
+
+  return { success: true };
 }

@@ -1,223 +1,193 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { 
-  Building2, 
-  Calculator, 
-  Clock, 
-  HardHat, 
-  CheckCircle2, 
-  XCircle, 
-  ArrowLeft
-} from "lucide-react";
 import { AcceptQuoteButton } from "./AcceptQuoteButton";
+import { Calculator, Clock, FileText, UserCheck } from "lucide-react";
 
-interface Quote {
+export const dynamic = "force-dynamic";
+
+interface QuoteItem {
   id: string;
   request_id: string;
-  provider_id: string | null;
-  provider_name: string | null;
+  provider_name?: string;
   total_amount: number;
-  estimated_days: number | null;
-  description: string | null;
+  description?: string;
+  breakdown?: any;
   status: string;
   created_at: string;
-  profiles?: {
-    full_name: string | null;
-  } | null;
+  estimated_days?: number;
 }
 
-interface RequestItem {
+interface RequestWithQuotes {
   id: string;
   title: string;
-  category?: string;
+  category: string;
   status: string;
-  created_at: string;
-  quotes: Quote[];
+  quotes: QuoteItem[];
 }
 
 export default async function ComparadorPage() {
   const supabase = await createClient();
 
-  // 1. Obtener usuario de la sesión
   const {
     data: { user },
-    error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    redirect("/auth/login");
-  }
+  if (!user) redirect("/auth/login");
 
-  // 2. Consultar solicitudes del usuario (client_id) con sus presupuestos
-  const { data: requestsData, error: requestsError } = await supabase
+  // Consulta adaptada exactamente a la columna client_id
+  const { data: requestsData, error } = await supabase
     .from("requests")
     .select(`
       id,
       title,
+      category,
       status,
-      created_at,
       quotes (
         id,
         request_id,
-        provider_id,
         provider_name,
         total_amount,
-        estimated_days,
         description,
+        breakdown,
         status,
         created_at,
-        profiles:provider_id (
-          full_name
-        )
+        estimated_days
       )
     `)
     .eq("client_id", user.id)
     .order("created_at", { ascending: false });
 
-  if (requestsError) {
-    console.error("Error al cargar datos del comparador:", requestsError);
-  }
-
-  const requests = (requestsData as unknown as RequestItem[]) || [];
+  const requests = (requestsData as unknown as RequestWithQuotes[]) || [];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 p-4">
-      {/* Cabecera HATBRA */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden">
-        <div className="relative z-10 space-y-2">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors mb-2"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Volver al panel
-          </Link>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-brand-500 text-xs font-medium">
-            <Calculator className="w-3.5 h-3.5" /> Comparador de Presupuestos
-          </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            Compara y Acepta Ofertas
-          </h1>
-          <p className="text-slate-300 text-xs md:text-sm max-w-xl">
-            Revisa las propuestas enviadas por los profesionales para tus obras solicitadas. Acepta la que mejor se adapte a tus necesidades.
-          </p>
-        </div>
-
-        {/* Resplandor decorativo */}
-        <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-brand-600/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+          Comparador de Presupuestos 📊
+        </h1>
+        <p className="text-xs text-slate-500">
+          Analiza y compara los presupuestos recibidos para tus solicitudes de reforma.
+        </p>
       </div>
 
-      {/* Lista de Solicitudes y Presupuestos */}
-      {requests.length === 0 ? (
-        <div className="py-12 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-200 shadow-sm p-6">
-          <Building2 className="w-10 h-10 text-slate-400 mx-auto" />
-          <h3 className="font-bold text-slate-900 text-sm">No tienes solicitudes publicadas</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Crea tu primera solicitud de reforma para empezar a recibir propuestas de los profesionales.
+      {error ? (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl">
+          Error al cargar los presupuestos: {error.message}
+        </div>
+      ) : requests.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3 shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+            <Calculator className="w-6 h-6" />
+          </div>
+          <h3 className="font-bold text-sm text-slate-800">No tienes presupuestos pendientes</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            Publica una nueva solicitud para comenzar a recibir ofertas de profesionales.
           </p>
-          <Link
-            href="/dashboard/nuevo-proyecto"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs transition shadow-sm"
-          >
-            Crear Solicitud
-          </Link>
         </div>
       ) : (
         <div className="space-y-8">
-          {requests.map((req) => (
-            <div key={req.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
-                    {req.category || "Reforma"}
+          {requests.map((req) => {
+            const hasAcceptedQuote = req.quotes.some((q) => q.status === "accepted");
+
+            return (
+              <div
+                key={req.id}
+                className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                  <div>
+                    <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-brand-600 bg-brand-50 px-2.5 py-0.5 rounded-full mb-1">
+                      {req.category}
+                    </span>
+                    <h2 className="text-base font-bold text-slate-900">{req.title}</h2>
+                  </div>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 w-fit">
+                    Estado: {req.status}
                   </span>
-                  <h2 className="text-lg font-bold text-slate-900 mt-1">{req.title}</h2>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
-                    Estado: <span className="capitalize">{req.status}</span>
-                  </span>
-                </div>
-              </div>
 
-              {/* Grid de Presupuestos para esta solicitud */}
-              {req.quotes && req.quotes.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {req.quotes.map((q) => {
-                    const isAccepted = q.status === "accepted";
-                    const isRejected = q.status === "rejected";
-                    const isRequestClosed = req.status === "in_process" || req.status === "completed";
-                    const professionalName = q.profiles?.full_name || q.provider_name || "Profesional HATBRA";
+                {req.quotes.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic py-2">
+                    Esperando presupuestos de profesionales...
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {req.quotes.map((quote) => {
+                      const isAccepted = quote.status === "accepted";
 
-                    return (
-                      <div
-                        key={q.id}
-                        className={`p-5 rounded-xl border transition-all space-y-4 flex flex-col justify-between ${
-                          isAccepted
-                            ? "bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-300"
-                            : isRejected
-                            ? "bg-slate-50 border-slate-200 opacity-60"
-                            : "bg-white border-slate-200 hover:border-brand-500 hover:shadow-md"
-                        }`}
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                              <HardHat className="w-4 h-4 text-brand-600" />
-                              {professionalName}
-                            </span>
-                            {isAccepted && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                <CheckCircle2 className="w-3 h-3" /> Aceptado
+                      return (
+                        <div
+                          key={quote.id}
+                          className={`p-5 rounded-2xl border transition space-y-4 flex flex-col justify-between ${
+                            isAccepted
+                              ? "border-emerald-500 bg-emerald-50/30 ring-1 ring-emerald-500"
+                              : "border-slate-200 bg-white hover:border-slate-300"
+                          }`}
+                        >
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                                <UserCheck className="w-4 h-4 text-brand-600" />
+                                {quote.provider_name || "Profesional Verificado"}
                               </span>
-                            )}
-                            {isRejected && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
-                                <XCircle className="w-3 h-3" /> Rechazado
+                              <span className="text-lg font-extrabold text-slate-900">
+                                {Number(quote.total_amount).toLocaleString("es-ES", {
+                                  style: "currency",
+                                  currency: "EUR",
+                                })}
                               </span>
-                            )}
-                          </div>
-
-                          <div className="text-2xl font-black text-slate-900">
-                            {q.total_amount ? `${q.total_amount.toLocaleString("es-ES")} €` : "0 €"}
-                          </div>
-
-                          {q.estimated_days && (
-                            <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 text-slate-400" />
-                              Plazo estimado: <span className="font-semibold text-slate-700">{q.estimated_days} días</span>
-                            </p>
-                          )}
-
-                          {q.description && (
-                            <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                              <p className="line-clamp-3">{q.description}</p>
                             </div>
-                          )}
-                        </div>
 
-                        <div className="pt-2 border-t border-slate-100">
-                          {isAccepted ? (
-                            <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
-                              <CheckCircle2 className="w-4 h-4" /> Presupuesto adjudicado
-                            </p>
-                          ) : isRejected ? (
-                            <p className="text-xs font-medium text-slate-400">Presupuesto no seleccionado</p>
-                          ) : (
-                            <AcceptQuoteButton quoteId={q.id} disabled={isRequestClosed} />
-                          )}
+                            {quote.description && (
+                              <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                {quote.description}
+                              </p>
+                            )}
+
+                            {quote.estimated_days && (
+                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Plazo estimado: <strong>{quote.estimated_days} días</strong></span>
+                              </div>
+                            )}
+
+                            {quote.breakdown && Array.isArray(quote.breakdown) && (
+                              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                                <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                                  <FileText className="w-3 h-3" /> Desglose por partidas:
+                                </span>
+                                <ul className="space-y-1">
+                                  {quote.breakdown.map((item: any, idx: number) => (
+                                    <li key={idx} className="flex justify-between text-[11px] text-slate-600">
+                                      <span className="truncate">{item.concept || item.title}</span>
+                                      <span className="font-semibold ml-2">
+                                        {Number(item.price || item.amount).toLocaleString("es-ES", {
+                                          style: "currency",
+                                          currency: "EUR",
+                                        })}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="pt-3 border-t border-slate-100">
+                            <AcceptQuoteButton
+                              quoteId={quote.id}
+                              isAccepted={isAccepted}
+                              isDisabled={hasAcceptedQuote && !isAccepted}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="py-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                  <p className="text-xs text-slate-500">Aún no hay presupuestos recibidos para esta solicitud.</p>
-                </div>
-              )}
-            </div>
-          ))}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
