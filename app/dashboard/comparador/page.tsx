@@ -25,6 +25,26 @@ interface RequestWithQuotes {
   quotes: QuoteItem[];
 }
 
+// Helper para formatear las insignias de estado con etiquetas claras y estilos
+function getStatusBadge(status: string) {
+  const map: Record<string, { label: string; className: string }> = {
+    published: { label: "Publicado", className: "bg-blue-50 text-blue-700 border-blue-200" },
+    open: { label: "Publicado", className: "bg-blue-50 text-blue-700 border-blue-200" },
+    in_review: { label: "En Revisión", className: "bg-amber-50 text-amber-700 border-amber-200" },
+    in_process: { label: "En Proceso", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    completed: { label: "Completado", className: "bg-slate-100 text-slate-700 border-slate-200" },
+    cancelled: { label: "Cancelado", className: "bg-red-50 text-red-700 border-red-200" },
+  };
+
+  const badge = map[status] || { label: status, className: "bg-slate-100 text-slate-700 border-slate-200" };
+
+  return (
+    <span className={`text-xs font-bold px-3 py-1 rounded-full border ${badge.className}`}>
+      Estado: {badge.label}
+    </span>
+  );
+}
+
 export default async function ComparadorPage() {
   const supabase = await createClient();
 
@@ -34,7 +54,7 @@ export default async function ComparadorPage() {
 
   if (!user) redirect("/auth/login");
 
-  // Consulta adaptada exactamente a la columna client_id
+  // Consulta relacional adaptada a la columna real client_id
   const { data: requestsData, error } = await supabase
     .from("requests")
     .select(`
@@ -101,9 +121,7 @@ export default async function ComparadorPage() {
                     </span>
                     <h2 className="text-base font-bold text-slate-900">{req.title}</h2>
                   </div>
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 w-fit">
-                    Estado: {req.status}
-                  </span>
+                  {getStatusBadge(req.status)}
                 </div>
 
                 {req.quotes.length === 0 ? (
