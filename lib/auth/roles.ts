@@ -30,7 +30,7 @@ export async function requireRole(allowedRoles: AllowedRole[]) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/auth/login");
+    redirect("/login");
   }
 
   const role = await getCurrentUserRole();

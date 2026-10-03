@@ -30,7 +30,7 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    redirect("/auth/login");
+    redirect("/login");
   }
 
   // 1. Obtener perfil del usuario
