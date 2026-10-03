@@ -10,7 +10,6 @@ import {
   TrendingUp,
   FileText,
   Clock,
-  CheckCircle2,
 } from "lucide-react";
 
 interface RequestItem {
@@ -18,7 +17,6 @@ interface RequestItem {
   title: string;
   description: string;
   status: string;
-  budget: number | null;
   created_at: string;
   client_id: string;
 }
@@ -45,10 +43,10 @@ export default async function DashboardPage() {
   const userRole = profile?.role || "client";
   const userName = profile?.full_name || user.email?.split("@")[0] || "Usuario";
 
-  // 2. Obtener solicitudes usando client_id (filtrado si es cliente, todas si es profesional/admin)
+  // 2. Obtener solicitudes (sin consultar la columna budget para evitar errores)
   let query = supabase
     .from("requests")
-    .select("id, title, description, status, budget, created_at, client_id")
+    .select("id, title, description, status, created_at, client_id")
     .order("created_at", { ascending: false })
     .limit(5);
 
@@ -59,9 +57,7 @@ export default async function DashboardPage() {
   const { data: requestsData, error: requestsError } = await query;
   const requests = (requestsData as RequestItem[]) || [];
 
-  // Calcular métricas rápidas
   const totalRequests = requests.length;
-  const totalBudget = requests.reduce((sum, req) => sum + (req.budget || 0), 0);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -109,11 +105,11 @@ export default async function DashboardPage() {
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold text-slate-500">Presupuesto Estimado</span>
+            <span className="text-xs font-bold text-slate-500">Estado de Operaciones</span>
             <TrendingUp className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">{totalBudget.toLocaleString()} €</div>
-          <p className="text-[11px] text-slate-400">Valor total estimado</p>
+          <div className="text-2xl font-extrabold text-slate-900">En marcha</div>
+          <p className="text-[11px] text-slate-400">Gestión de presupuestos activa</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
@@ -174,12 +170,6 @@ export default async function DashboardPage() {
                       </span>
                     </div>
                   </div>
-
-                  {req.budget && (
-                    <div className="text-right">
-                      <span className="text-xs font-extrabold text-slate-900">{req.budget} €</span>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
