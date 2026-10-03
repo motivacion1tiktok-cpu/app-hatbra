@@ -1,42 +1,39 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { PlusCircle, ArrowLeft } from "lucide-react";
-import { WizardForm } from "./WizardForm";
+import { WizardClient } from "./WizardClient";
+
+export const dynamic = "force-dynamic";
+
+export interface CategoryOption {
+  name: string;
+  description: string | null;
+}
 
 export default async function NuevoProyectoPage() {
   const supabase = await createClient();
 
   const {
     data: { user },
-    error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    redirect("/auth/login");
-  }
+  if (!user) redirect("/auth/login");
 
-  return (
-    <div className="max-w-3xl mx-auto space-y-6 p-4">
-      {/* Cabecera */}
-      <div className="bg-slate-900 text-white p-6 md:p-8 rounded-3xl shadow-md space-y-2">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors mb-2"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Volver al panel
-        </Link>
-        <div className="flex items-center gap-2">
-          <PlusCircle className="w-5 h-5 text-brand-500" />
-          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">Publicar Nueva Solicitud</h1>
-        </div>
-        <p className="text-xs text-slate-300">
-          Crea tu proyecto en 2 sencillos pasos para empezar a recibir presupuestos de profesionales verificados.
-        </p>
-      </div>
+  // Consulta de categorías activas en BD
+  const { data } = await supabase
+    .from("work_categories")
+    .select("name, description")
+    .eq("vertical", "reformas")
+    .eq("is_active", true)
+    .order("sort_order");
 
-      {/* Formulario Asistente */}
-      <WizardForm />
-    </div>
-  );
+  // Fallback defensivo: si la BD no devuelve registros o falla, se mantiene funcional
+  const categories: CategoryOption[] = data && data.length > 0 ? data : [
+    { name: "Reforma de Baño", description: "Cambio de plato de ducha, alicatados, fontanería" },
+    { name: "Reforma de Cocina", description: "Mobiliario, encimeras, alicatado y fontanería" },
+    { name: "Reforma Integral", description: "Reforma completa de vivienda o local" },
+    { name: "Pintura y Acabados", description: "Aislado de paredes, pintura interior/exterior" },
+    { name: "Electricidad e Iluminación", description: "Instalación eléctrica, cuadro y mecanismos" },
+  ];
+
+  return <WizardClient categories={categories} />;
 }
