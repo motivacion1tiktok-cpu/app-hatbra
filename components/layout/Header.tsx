@@ -1,61 +1,59 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { LogOut, Menu } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ROLE_LABELS } from "@/lib/navigation";
+import { Logo } from "@/components/ui/Logo";
 
-export default function Header() {
-  const [role, setRole] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>("");
-  const supabase = createClient();
+interface HeaderProps {
+  userName: string;
+  /** Rol recibido por props — NUNCA consultar aquí (fuente única: layout). */
+  role: string;
+  onMenuClick: () => void;
+}
 
-  useEffect(() => {
-    async function getUserData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+export function Header({ userName, role, onMenuClick }: HeaderProps) {
+  const router = useRouter();
+  const initial = userName?.trim().charAt(0).toUpperCase() || "U";
+  const roleLabel = ROLE_LABELS[role as keyof typeof ROLE_LABELS] ?? "Usuario";
 
-      // Consultar la tabla de perfiles
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, full_name, email")
-        .eq("id", user.id)
-        .single();
-
-      if (profile) {
-        setRole(profile.role);
-        setUserName(profile.full_name || user.email?.split("@")[0] || "Usuario");
-      }
-    }
-
-    getUserData();
-  }, []);
+  async function signOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
-    <header className="h-16 border-b border-gray-200 bg-white px-6 flex items-center justify-between">
-      {/* ... buscador o elementos de la izquierda ... */}
-
-      <div className="flex items-center gap-4 ml-auto">
-        {/* Campana de Notificaciones */}
-        <button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition-colors">
-          <span className="sr-only">Notificaciones</span>
-          🔔
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur sm:px-6">
+      <button
+        onClick={onMenuClick}
+        className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+        aria-label="Abrir menú"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      <Logo className="lg:hidden" />
+      <div className="flex-1" />
+      <div className="flex items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white">
+          {initial}
+        </span>
+        <span className="hidden text-sm font-medium text-slate-700 sm:block">
+          {userName || "Mi cuenta"}
+        </span>
+        <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
+          {roleLabel}
+        </span>
+        <button
+          onClick={signOut}
+          className="ml-2 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-red-600"
+          aria-label="Cerrar sesión"
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="hidden sm:block">Salir</span>
         </button>
-
-        {/* Badge de Usuario y Rol */}
-        <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center font-semibold text-gray-700">
-            {userName.charAt(0).toUpperCase()}
-          </div>
-          <div className="flex flex-col text-left">
-            <span className="text-sm font-medium text-gray-900">{userName}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full w-fit font-medium ${
-              role === "pro" || role === "professional" 
-                ? "bg-blue-100 text-blue-700" 
-                : "bg-green-100 text-green-700"
-            }`}>
-              {role === "pro" || role === "professional" ? "Profesional" : "Cliente"}
-            </span>
-          </div>
-        </div>
       </div>
     </header>
   );
