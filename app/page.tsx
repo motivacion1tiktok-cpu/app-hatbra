@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -63,7 +63,7 @@ export default function Home() {
       setDescripcion('');
       setPresupuestoEstimado('');
       setTimeout(() => {
-        router.push('/client/dashboard');
+        router.push('/dashboard');
       }, 1500);
     }
 
@@ -87,7 +87,7 @@ export default function Home() {
         <nav className="flex items-center gap-4">
           {user ? (
             <Link
-              href={userRole === 'pro' ? '/pro/dashboard' : '/client/dashboard'}
+              href={userRole === 'pro' ? '/dashboard' : '/dashboard'}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition shadow-lg shadow-blue-600/20"
             >
               <span>Ir a mi Panel ({userRole === 'pro' ? 'Profesional' : 'Cliente'})</span>
@@ -99,7 +99,7 @@ export default function Home() {
                 href="/login"
                 className="text-xs font-medium text-slate-300 hover:text-white px-3 py-2 rounded-lg transition"
               >
-                Iniciar sesión
+                Iniciar sesiÃ³n
               </Link>
               <Link
                 href="/register"
@@ -112,7 +112,7 @@ export default function Home() {
         </nav>
       </header>
 
-      {/* Hero / Presentación Principal */}
+      {/* Hero / PresentaciÃ³n Principal */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:py-16 space-y-16">
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium">
@@ -127,7 +127,7 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Formulario de Creación de Solicitud */}
+        {/* Formulario de CreaciÃ³n de Solicitud */}
         <div className="max-w-2xl mx-auto bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
           <div className="border-b border-slate-800 pb-4">
             <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -135,25 +135,25 @@ export default function Home() {
               Publicar una solicitud de reforma
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Describe tu proyecto para que los profesionales interesados te envíen sus presupuestos.
+              Describe tu proyecto para que los profesionales interesados te envÃ­en sus presupuestos.
             </p>
           </div>
 
           {mensajeExito && (
             <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-xs font-medium">
-              ¡Solicitud publicada con éxito! Redirigiendo a tu panel de cliente...
+              Â¡Solicitud publicada con Ã©xito! Redirigiendo a tu panel de cliente...
             </div>
           )}
 
           <form onSubmit={handleCrearSolicitud} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Título de la obra o proyecto</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1">TÃ­tulo de la obra o proyecto</label>
               <input
                 type="text"
                 required
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
-                placeholder="Ej. Reforma integral de baño de 6m²"
+                placeholder="Ej. Reforma integral de baÃ±o de 6mÂ²"
                 className="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -165,13 +165,13 @@ export default function Home() {
                 required
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
-                placeholder="Especifica materiales deseados, cambios de distribución, estado actual..."
+                placeholder="Especifica materiales deseados, cambios de distribuciÃ³n, estado actual..."
                 className="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Presupuesto aproximado (€) [Opcional]</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Presupuesto aproximado (â‚¬) [Opcional]</label>
               <input
                 type="number"
                 value={presupuestoEstimado}
@@ -192,7 +192,7 @@ export default function Home() {
           </form>
         </div>
 
-        {/* Sección Informativa */}
+        {/* SecciÃ³n Informativa */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-slate-800/80">
           <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-2">
             <ShieldCheck className="w-6 h-6 text-blue-400" />
@@ -212,7 +212,7 @@ export default function Home() {
 
           <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-2">
             <Users className="w-6 h-6 text-blue-400" />
-            <h4 className="font-bold text-white text-sm">Gestión Sencilla</h4>
+            <h4 className="font-bold text-white text-sm">GestiÃ³n Sencilla</h4>
             <p className="text-xs text-slate-400 leading-relaxed">
               Controla las ofertas recibidas y acepta presupuestos con un solo clic desde tu panel.
             </p>
