@@ -1,141 +1,186 @@
-"use client";
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { 
+  Building2, 
+  Calendar, 
+  Euro, 
+  Clock, 
+  Send, 
+  CheckCircle2, 
+  ArrowLeft 
+} from "lucide-react";
+import Link from "next/link";
+import { revalidatePath } from "next/cache";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client"; // ✅ Cliente centralizado con contexto Auth / SSR
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-export default function ProyectoDetallePage() {
-  const params = useParams();
-  const router = useRouter();
-  const [proyecto, setProyecto] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [presupuesto, setPresupuesto] = useState({
-    monto: "",
-    descripcion: "",
-    tiempoDias: "",
-  });
-  const [enviando, setEnviando] = useState(false);
+export default async function ProyectoDetallePage({ params }: PageProps) {
+  const { id } = await params;
+  const supabase = await createClient();
 
-  const supabase = createClient();
+  // Obtener sesión del usuario
+  const { data: { user } } = await supabase.auth.getUser();
 
-  useEffect(() => {
-    async function cargarProyecto() {
-      if (!params?.id) return;
-      
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("requests")
-        .select("*, profiles(full_name, email)")
-        .eq("id", params.id)
-        .single();
+  // Obtener perfil para el rol
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user?.id || "")
+    .single();
 
-      if (error) {
-        console.error("Error al cargar la solicitud:", error.message);
-      } else {
-        setProyecto(data);
-      }
-      setLoading(false);
-    }
+  const isPro = profile?.role === "professional" || profile?.role === "pro";
 
-    cargarProyecto();
-  }, [params?.id]);
+  // Obtener la solicitud
+  const { data: request, error } = await supabase
+    .from("requests")
+    .select("*, profiles:client_id(full_name)")
+    .eq("id", id)
+    .single();
 
-  const handleSubmitPresupuesto = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEnviando(true);
+  if (error || !request) {
+    notFound();
+  }
 
-    const { data: { user } } = await supabase.auth.getUser();
+  // Obtener presupuestos/ofertas para esta solicitud
+  const { data: quotes } = await supabase
+    .from("quotes")
+    .select("*, profiles:professional_id(full_name)")
+    .eq("request_id", id);
 
-    if (!user) {
-      alert("Debes iniciar sesión para enviar un presupuesto.");
-      setEnviando(false);
-      return;
-    }
+  // Acción de servidor para enviar presupuesto
+  async function submitQuote(formData: FormData) {
+    "use server";
+    const amount = Number(formData.get("amount"));
+    const estimatedDays = Number(formData.get("estimated_days"));
+    const description = formData.get("description") as string;
 
-    const { error } = await supabase.from("quotes").insert({
-      request_id: params.id,
-      professional_id: user.id,
-      amount: parseFloat(presupuesto.monto),
-      description: presupuesto.descripcion,
-      estimated_days: parseInt(presupuesto.tiempoDias),
+    const supabaseServer = await createClient();
+    const { data: { user: currentUser } } = await supabaseServer.auth.getUser();
+
+    if (!currentUser) return;
+
+    await supabaseServer.from("quotes").insert({
+      request_id: id,
+      professional_id: currentUser.id,
+      amount,
+      estimated_days: estimatedDays,
+      description,
       status: "pending",
     });
 
-    if (error) {
-      alert(`Error al emitir el presupuesto: ${error.message}`);
-    } else {
-      alert("¡Presupuesto enviado con éxito!");
-      router.push("/dashboard/proyectos");
-    }
-    setEnviando(false);
-  };
-
-  if (loading) {
-    return <div className="p-8 text-center text-gray-500">Cargando detalles del proyecto...</div>;
-  }
-
-  if (!proyecto) {
-    return <div className="p-8 text-center text-red-500">Proyecto no encontrado o no disponible.</div>;
+    revalidatePath(`/dashboard/proyectos/${id}`);
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{proyecto.title || "Solicitud de Reforma"}</h1>
-        <p className="text-gray-600 mb-4">{proyecto.description}</p>
-        <div className="flex gap-4 text-sm text-gray-500">
-          <span>Categoría: <strong>{proyecto.category || "General"}</strong></span>
-          <span>Estado: <strong>{proyecto.status}</strong></span>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <Link 
+        href="/dashboard/proyectos" 
+        className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition"
+      >
+        <ArrowLeft className="w-4 h-4" /> Volver a solicitudes
+      </Link>
+
+      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+          <div>
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 uppercase tracking-wider">
+              {request.status || "abierto"}
+            </span>
+            <h1 className="text-2xl font-extrabold text-slate-900 mt-2">{request.title}</h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Publicado el {new Date(request.created_at).toLocaleDateString()} por {request.profiles?.full_name || "Cliente"}
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-semibold mb-4 text-gray-900">Enviar Propuesta / Presupuesto</h2>
-        <form onSubmit={handleSubmitPresupuesto} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Monto (€)</label>
-            <input
-              type="number"
-              required
-              value={presupuesto.monto}
-              onChange={(e) => setPresupuesto({ ...presupuesto, monto: e.target.value })}
-              className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Ej: 1200"
-            />
+        <div className="space-y-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Descripción del trabajo</h2>
+          <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            {request.description}
+          </p>
+        </div>
+
+        {/* Formulario de Presupuesto (Sólo Profesionales) */}
+        {isPro && request.status === "open" && (
+          <div className="border-t border-slate-100 pt-6 space-y-4">
+            <div className="flex items-center gap-2 text-brand-600 font-extrabold text-sm">
+              <Send className="w-4 h-4" /> Enviar Presupuesto
+            </div>
+
+            <form action={submitQuote} className="space-y-4 bg-slate-50/50 p-6 rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Importe Total (€)</label>
+                  <div className="relative">
+                    <Euro className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                    <input 
+                      type="number" 
+                      name="amount" 
+                      required 
+                      placeholder="1200"
+                      className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Plazo estimado (días)</label>
+                  <div className="relative">
+                    <Clock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                    <input 
+                      type="number" 
+                      name="estimated_days" 
+                      required 
+                      placeholder="5"
+                      className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Detalles de la propuesta</label>
+                <textarea 
+                  name="description" 
+                  rows={3} 
+                  required 
+                  placeholder="Incluye desescombrado, materiales de agarre y mano de obra..."
+                  className="w-full p-3 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" /> Confirmar y Enviar Presupuesto
+              </button>
+            </form>
           </div>
+        )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tiempo estimado (Días)</label>
-            <input
-              type="number"
-              required
-              value={presupuesto.tiempoDias}
-              onChange={(e) => setPresupuesto({ ...presupuesto, tiempoDias: e.target.value })}
-              className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Ej: 5"
-            />
+        {/* Presupuestos Enviados */}
+        {quotes && quotes.length > 0 && (
+          <div className="border-t border-slate-100 pt-6 space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Presupuestos Enviados ({quotes.length})</h2>
+            <div className="space-y-2">
+              {quotes.map((q: any) => (
+                <div key={q.id} className="p-4 rounded-2xl border border-slate-100 bg-white flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{q.profiles?.full_name || "Profesional"}</p>
+                    <p className="text-xs text-slate-500">{q.description}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-extrabold text-slate-900">{q.amount || q.total_amount} €</span>
+                    <p className="text-[10px] text-slate-400">{q.estimated_days} días</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Detalles de la propuesta</label>
-            <textarea
-              required
-              rows={4}
-              value={presupuesto.descripcion}
-              onChange={(e) => setPresupuesto({ ...presupuesto, descripcion: e.target.value })}
-              className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Describe los materiales, plazos de ejecución y condiciones..."
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={enviando}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors"
-          >
-            {enviando ? "Enviando presupuesto..." : "Emitir Presupuesto"}
-          </button>
-        </form>
+        )}
       </div>
     </div>
   );
