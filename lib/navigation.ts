@@ -1,76 +1,59 @@
 import {
-  LayoutDashboard, FilePlus2, FileText, MessageSquare, Search, Handshake,
-  Users, UserCheck, ShieldAlert, BarChart3, Layers, Wrench,
+  LayoutDashboard,
+  Wrench,
+  Search,
+  Handshake,
+  MessageSquare,
+  FileText,
 } from "lucide-react";
-import type { NavSection, Role } from "./types";
 
-export const ROLE_LABELS: Record<Role, string> = {
-  owner: "Propietario",
-  admin: "Administrador",
+export interface NavItem {
+  title: string;
+  href: string;
+  icon: any;
+  roles?: string[];
+}
+
+export const ROLE_LABELS: Record<string, string> = {
   client: "Cliente",
   professional: "Profesional",
+  pro: "Profesional",
+  admin: "Administrador",
 };
 
-export const NAVIGATION: Record<Role, NavSection[]> = {
-  owner: [
-    {
-      title: "Gestión",
-      items: [
-        { label: "Resumen", href: "/dashboard", icon: LayoutDashboard, exact: true },
-        { label: "Usuarios", href: "/dashboard/usuarios", icon: Users },
-        { label: "Validaciones", href: "/dashboard/validaciones", icon: UserCheck },
-        { label: "Solicitudes", href: "/dashboard/solicitudes", icon: FileText },
-        { label: "Disputas", href: "/dashboard/disputas", icon: ShieldAlert },
-      ],
-    },
-    {
-      title: "Core",
-      items: [
-        { label: "Verticales", href: "/dashboard/verticales", icon: Layers },
-        { label: "Analíticas", href: "/dashboard/analiticas", icon: BarChart3 },
-      ],
-    },
-  ],
-  admin: [
-    {
-      title: "Gestión",
-      items: [
-        { label: "Resumen", href: "/dashboard", icon: LayoutDashboard, exact: true },
-        { label: "Usuarios", href: "/dashboard/usuarios", icon: Users },
-        { label: "Validaciones", href: "/dashboard/validaciones", icon: UserCheck },
-        { label: "Solicitudes", href: "/dashboard/solicitudes", icon: FileText },
-      ],
-    },
-    {
-      title: "Moderación",
-      items: [
-        { label: "Disputas", href: "/dashboard/disputas", icon: ShieldAlert },
-        { label: "Analíticas", href: "/dashboard/analiticas", icon: BarChart3 },
-      ],
-    },
-  ],
-  client: [
-    {
-      title: "Principal",
-      items: [
-        { label: "Inicio", href: "/dashboard", icon: LayoutDashboard, exact: true },
-        { label: "Nueva solicitud", href: "/dashboard/solicitudes/nueva", icon: FilePlus2, exact: true },
-        { label: "Mis solicitudes", href: "/dashboard/solicitudes", icon: FileText },
-        { label: "Presupuestos", href: "/dashboard/presupuestos", icon: Handshake },
-        { label: "Mensajes", href: "/dashboard/mensajes", icon: MessageSquare },
-      ],
-    },
-  ],
-  professional: [
-    {
-      title: "Principal",
-      items: [
-        { label: "Inicio", href: "/dashboard", icon: LayoutDashboard, exact: true },
-        { label: "Mis servicios", href: "/dashboard/services", icon: Wrench },
-        { label: "Buscar solicitudes", href: "/dashboard/oportunidades", icon: Search },
-        { label: "Mis ofertas", href: "/dashboard/ofertas", icon: Handshake },
-        { label: "Mensajes", href: "/dashboard/mensajes", icon: MessageSquare },
-      ],
-    },
-  ],
-};
+export const NAVIGATION_LINKS: NavItem[] = [
+  {
+    title: "Inicio",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Mis servicios",
+    href: "/dashboard/services",
+    icon: Wrench,
+    roles: ["professional", "pro"],
+  },
+  {
+    title: "Buscar solicitudes",
+    href: "/dashboard/proyectos", // Rutado corregido a /dashboard/proyectos (antes /oportunidades)
+    icon: Search,
+    roles: ["professional", "pro"],
+  },
+  {
+    title: "Mis ofertas",
+    href: "/dashboard/ofertas",
+    icon: Handshake,
+    roles: ["professional", "pro"],
+  },
+  {
+    title: "Mis proyectos",
+    href: "/dashboard/proyectos",
+    icon: FileText,
+    roles: ["client"],
+  },
+  {
+    title: "Mensajes",
+    href: "/dashboard/mensajes",
+    icon: MessageSquare,
+  },
+];
