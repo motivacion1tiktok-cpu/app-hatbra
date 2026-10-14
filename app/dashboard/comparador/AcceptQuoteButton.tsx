@@ -1,60 +1,65 @@
-"use client";
+﻿"use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Loader2 } from "lucide-react";
 import { acceptQuote } from "./actions";
 import { cn } from "@/lib/utils";
 
 interface AcceptQuoteButtonProps {
-  /** ID del presupuesto a aceptar. */
   quoteId: string;
-  /** Deshabilitado (p. ej. request ya en proceso). */
-  disabled?: boolean;
+  isAccepted?: boolean;
+  isDisabled?: boolean;
+  className?: string;
 }
 
-export function AcceptQuoteButton({ quoteId, disabled }: AcceptQuoteButtonProps) {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [accepted, setAccepted] = useState(false);
+export function AcceptQuoteButton({
+  quoteId,
+  isAccepted = false,
+  isDisabled = false,
+  className
+}: AcceptQuoteButtonProps) {
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  function handleAccept() {
-    setError(null);
-    startTransition(async () => {
+  async function handleAccept() {
+    if (loading || isDisabled || isAccepted) return;
+    setLoading(true);
+
+    try {
       const res = await acceptQuote(quoteId);
-      if (!res.ok) {
-        setError(res.error ?? "No se pudo aceptar.");
-        return;
+      if (res.ok) {
+        router.refresh();
+      } else {
+        alert(res.error || "Error al aceptar el presupuesto");
       }
-      setAccepted(true);
-      router.refresh();
-    });
+    } catch (err) {
+      alert("Error de conexión al aceptar presupuesto");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  if (accepted) {
+  if (isAccepted) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
-        <Check className="h-4 w-4" /> Aceptado
+      <span className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20", className)}>
+        <Check className="w-3.5 h-3.5" /> Presupuesto Aceptado
       </span>
     );
   }
 
   return (
-    <div className="space-y-1.5">
-      <button
-        type="button"
-        onClick={handleAccept}
-        disabled={pending || disabled}
-        className={cn(
-          "inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white",
-          "transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-        )}
-      >
-        {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-        {pending ? "Aceptando…" : "Aceptar presupuesto"}
-      </button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
+    <button
+      onClick={handleAccept}
+      disabled={loading || isDisabled}
+      className={cn(
+        "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all",
+        "bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed",
+        className
+      )}
+    >
+      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+      Aceptar Presupuesto
+    </button>
   );
 }

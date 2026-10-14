@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+﻿import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AcceptQuoteButton } from "./AcceptQuoteButton";
 import { Calculator, Clock, FileText, UserCheck } from "lucide-react";
@@ -30,7 +30,7 @@ function getStatusBadge(status: string) {
   const map: Record<string, { label: string; className: string }> = {
     published: { label: "Publicado", className: "bg-blue-50 text-blue-700 border-blue-200" },
     open: { label: "Publicado", className: "bg-blue-50 text-blue-700 border-blue-200" },
-    in_review: { label: "En Revisión", className: "bg-amber-50 text-amber-700 border-amber-200" },
+    in_review: { label: "En RevisiÃ³n", className: "bg-amber-50 text-amber-700 border-amber-200" },
     in_process: { label: "En Proceso", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
     completed: { label: "Completado", className: "bg-slate-100 text-slate-700 border-slate-200" },
     cancelled: { label: "Cancelado", className: "bg-red-50 text-red-700 border-red-200" },
@@ -83,7 +83,7 @@ export default async function ComparadorPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-          Comparador de Presupuestos 📊
+          Comparador de Presupuestos ðŸ“Š
         </h1>
         <p className="text-xs text-slate-500">
           Analiza y compara los presupuestos recibidos para tus solicitudes de reforma.
@@ -165,7 +165,7 @@ export default async function ComparadorPage() {
                             {quote.estimated_days && (
                               <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                 <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                <span>Plazo estimado: <strong>{quote.estimated_days} días</strong></span>
+                                <span>Plazo estimado: <strong>{quote.estimated_days} dÃ­as</strong></span>
                               </div>
                             )}
 
@@ -192,11 +192,7 @@ export default async function ComparadorPage() {
                           </div>
 
                           <div className="pt-3 border-t border-slate-100">
-                            <AcceptQuoteButton
-                              quoteId={quote.id}
-                              isAccepted={isAccepted}
-                              isDisabled={hasAcceptedQuote && !isAccepted}
-                            />
+                            <AcceptQuoteButton quoteId={quote.id} isAccepted={quote.status === "accepted"} isDisabled={hasAcceptedQuote && quote.status !== "accepted"} />
                           </div>
                         </div>
                       );
@@ -211,3 +207,4 @@ export default async function ComparadorPage() {
     </div>
   );
 }
+

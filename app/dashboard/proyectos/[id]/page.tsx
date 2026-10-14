@@ -103,7 +103,7 @@ export default async function ProyectoDetallePage({
                     <p className="mt-0.5 text-xs text-slate-400">Plazo: {q.estimated_days} días</p>
                   )}
                 </div>
-                <AcceptQuoteButton quoteId={q.id} isAccepted={false} isDisabled={false} />
+                <AcceptQuoteButton quoteId={q.id} isAccepted={q.status === "accepted"} isDisabled={q.status !== "sent"} />
                 {q.status !== "sent" && (
                   <span className="text-xs font-medium capitalize text-slate-400">{q.status}</span>
                 )}
