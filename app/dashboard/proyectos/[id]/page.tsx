@@ -1,187 +1,117 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { 
-  Building2, 
-  Calendar, 
-  Euro, 
-  Clock, 
-  Send, 
-  CheckCircle2, 
-  ArrowLeft 
-} from "lucide-react";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
+import { ArrowLeft } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { QuoteForm } from "./QuoteForm";
+import { AcceptQuoteButton } from "../../comparador/AcceptQuoteButton";
 
-interface PageProps {
-  params: Promise<{ id: string }>;
+export const dynamic = "force-dynamic";
+
+function euro(v: number | string | null) {
+  if (v === null || v === "") return "A consultar";
+  const n = Number(v);
+  return Number.isFinite(n)
+    ? n.toLocaleString("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 })
+    : "A consultar";
 }
 
-export default async function ProyectoDetallePage({ params }: PageProps) {
+export default async function ProyectoDetallePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const supabase = await createClient();
 
-  // Obtener sesión del usuario
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Obtener perfil para el rol
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
-    .eq("id", user?.id || "")
-    .single();
+    .select("role, full_name")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
 
-  const isPro = profile?.role === "professional" || profile?.role === "pro";
+  const role = profile?.role ?? "client";
+  const isPro = role === "professional" || role === "owner" || role === "admin";
 
-  // Obtener la solicitud
-  const { data: request, error } = await supabase
+  // SIN JOIN: la fila de requests trae todo lo que la vista necesita
+  const { data: request } = await supabase
     .from("requests")
-    .select("*, profiles:client_id(full_name)")
+    .select("id, title, description, status, created_at, category, client_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
-  if (error || !request) {
-    notFound();
-  }
+  // 404 SOLO si la fila no existe de verdad — nunca por un join roto
+  if (!request) notFound();
 
-  // Obtener presupuestos/ofertas para esta solicitud
+  const isOwner = request.client_id === user?.id;
+
   const { data: quotes } = await supabase
     .from("quotes")
-    .select("*, profiles:professional_id(full_name)")
-    .eq("request_id", id);
+    .select("id, total_amount, description, estimated_days, status, user_id, created_at")
+    .eq("request_id", id)
+    .order("created_at", { ascending: false });
 
-  // Acción de servidor para enviar presupuesto
-  async function submitQuote(formData: FormData) {
-    "use server";
-    const amount = Number(formData.get("amount"));
-    const estimatedDays = Number(formData.get("estimated_days"));
-    const description = formData.get("description") as string;
-
-    const supabaseServer = await createClient();
-    const { data: { user: currentUser } } = await supabaseServer.auth.getUser();
-
-    if (!currentUser) return;
-
-    await supabaseServer.from("quotes").insert({
-      request_id: id,
-      professional_id: currentUser.id,
-      amount,
-      estimated_days: estimatedDays,
-      description,
-      status: "pending",
-    });
-
-    revalidatePath(`/dashboard/proyectos/${id}`);
-  }
+  const providerName = profile?.full_name?.trim() || user?.email?.split("@")[0] || "Profesional";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <Link 
-        href="/dashboard/proyectos" 
-        className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition"
-      >
-        <ArrowLeft className="w-4 h-4" /> Volver a solicitudes
+      <Link href="/dashboard/proyectos" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
+        <ArrowLeft className="h-4 w-4" /> Volver a proyectos
       </Link>
 
-      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6">
-          <div>
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 uppercase tracking-wider">
-              {request.status || "abierto"}
-            </span>
-            <h1 className="text-2xl font-extrabold text-slate-900 mt-2">{request.title}</h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Publicado el {new Date(request.created_at).toLocaleDateString()} por {request.profiles?.full_name || "Cliente"}
-            </p>
-          </div>
+      {/* Solicitud */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
+            {request.category || "General"}
+          </span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium capitalize text-slate-600">
+            {request.status}
+          </span>
+          <span className="text-xs text-slate-400">
+            {new Date(request.created_at).toLocaleDateString("es-ES")}
+          </span>
         </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Descripción del trabajo</h2>
-          <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
-            {request.description}
-          </p>
-        </div>
-
-        {/* Formulario de Presupuesto (Sólo Profesionales) */}
-        {isPro && request.status === "open" && (
-          <div className="border-t border-slate-100 pt-6 space-y-4">
-            <div className="flex items-center gap-2 text-brand-600 font-extrabold text-sm">
-              <Send className="w-4 h-4" /> Enviar Presupuesto
-            </div>
-
-            <form action={submitQuote} className="space-y-4 bg-slate-50/50 p-6 rounded-2xl border border-slate-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Importe Total (€)</label>
-                  <div className="relative">
-                    <Euro className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                    <input 
-                      type="number" 
-                      name="amount" 
-                      required 
-                      placeholder="1200"
-                      className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Plazo estimado (días)</label>
-                  <div className="relative">
-                    <Clock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                    <input 
-                      type="number" 
-                      name="estimated_days" 
-                      required 
-                      placeholder="5"
-                      className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Detalles de la propuesta</label>
-                <textarea 
-                  name="description" 
-                  rows={3} 
-                  required 
-                  placeholder="Incluye desescombrado, materiales de agarre y mano de obra..."
-                  className="w-full p-3 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-              </div>
-
-              <button 
-                type="submit" 
-                className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" /> Confirmar y Enviar Presupuesto
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Presupuestos Enviados */}
-        {quotes && quotes.length > 0 && (
-          <div className="border-t border-slate-100 pt-6 space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Presupuestos Enviados ({quotes.length})</h2>
-            <div className="space-y-2">
-              {quotes.map((q: any) => (
-                <div key={q.id} className="p-4 rounded-2xl border border-slate-100 bg-white flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-slate-900">{q.profiles?.full_name || "Profesional"}</p>
-                    <p className="text-xs text-slate-500">{q.description}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-extrabold text-slate-900">{q.amount || q.total_amount} €</span>
-                    <p className="text-[10px] text-slate-400">{q.estimated_days} días</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <h1 className="mt-3 text-2xl font-bold text-slate-900">{request.title}</h1>
+        {request.description && <p className="mt-2 text-slate-600">{request.description}</p>}
       </div>
+
+      {/* Profesional: emite presupuesto */}
+      {isPro && !isOwner && (
+        <QuoteForm requestId={request.id} providerName={providerName} />
+      )}
+
+      {/* Cliente dueño (o staff): presupuestos recibidos + aceptación */}
+      {(isOwner || (role === "owner" || role === "admin")) && (
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Presupuestos recibidos{" "}
+            <span className="text-sm font-normal text-slate-400">({quotes?.length ?? 0})</span>
+          </h2>
+          {!quotes || quotes.length === 0 ? (
+            <p className="text-sm text-slate-400">Aún no hay presupuestos para esta solicitud.</p>
+          ) : (
+            quotes.map((q) => (
+              <div key={q.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 p-4">
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900">{euro(q.total_amount)}</p>
+                  {q.description && <p className="text-xs text-slate-500 line-clamp-1">{q.description}</p>}
+                  {q.estimated_days != null && (
+                    <p className="mt-0.5 text-xs text-slate-400">Plazo: {q.estimated_days} días</p>
+                  )}
+                </div>
+                <AcceptQuoteButton quoteId={q.id} isAccepted={false} isDisabled={false} />
+                {q.status !== "sent" && (
+                  <span className="text-xs font-medium capitalize text-slate-400">{q.status}</span>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
