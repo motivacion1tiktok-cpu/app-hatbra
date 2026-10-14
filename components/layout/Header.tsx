@@ -5,6 +5,7 @@ import { LogOut, Menu } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_LABELS } from "@/lib/navigation";
 import { Logo } from "@/components/ui/Logo";
+import { NotificationBell } from "./NotificationBell";
 
 interface HeaderProps {
   userName: string;
@@ -36,6 +37,7 @@ export function Header({ userName, role, onMenuClick }: HeaderProps) {
       </button>
       <Logo className="lg:hidden" />
       <div className="flex-1" />
+      <NotificationBell />
       <div className="flex items-center gap-2">
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white">
           {initial}
