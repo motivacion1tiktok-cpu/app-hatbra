@@ -61,7 +61,7 @@ export function WizardClient({ categories }: WizardClientProps) {
         title,
         description,
         attachments,
-        status: "open",
+        status: "published",
       },
     ]);
 
