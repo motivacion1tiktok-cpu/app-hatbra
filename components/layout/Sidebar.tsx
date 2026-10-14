@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
-import { ROLES, type Role } from "@/lib/types";
+import { type Role } from "@/lib/types";
 import { NAVIGATION_LINKS as NAVIGATION, ROLE_LABELS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/ui/Logo";
@@ -14,7 +14,7 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-export function Sidebar({ role = ROLES.CLIENT, isOpen = false, onClose }: SidebarProps) {
+export function Sidebar({ role = "client", isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   // Filtrar los enlaces del menú según el rol del usuario autenticado
