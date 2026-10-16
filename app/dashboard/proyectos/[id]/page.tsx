@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { QuoteForm } from "./QuoteForm";
 import { AcceptQuoteButton } from "../../comparador/AcceptQuoteButton";
+import { DeleteQuoteButton } from "./DeleteQuoteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function ProyectoDetallePage({
 
   const role = profile?.role ?? "client";
   const isPro = role === "professional" || role === "owner" || role === "admin";
+  const isStaff = role === "owner" || role === "admin";
 
   // SIN JOIN: la fila de requests trae todo lo que la vista necesita
   const { data: request } = await supabase
@@ -85,11 +87,16 @@ export default async function ProyectoDetallePage({
       )}
 
       {/* Cliente dueño (o staff): presupuestos recibidos + aceptación */}
-      {(isOwner || (role === "owner" || role === "admin")) && (
+      {(isOwner || isStaff) && (
         <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="text-lg font-semibold text-slate-900">
             Presupuestos recibidos{" "}
             <span className="text-sm font-normal text-slate-400">({quotes?.length ?? 0})</span>
+            {isStaff && (
+              <span className="ml-2 text-xs font-normal text-slate-400">
+                · modo gestión: puedes eliminar presupuestos
+              </span>
+            )}
           </h2>
           {!quotes || quotes.length === 0 ? (
             <p className="text-sm text-slate-400">Aún no hay presupuestos para esta solicitud.</p>
@@ -102,11 +109,14 @@ export default async function ProyectoDetallePage({
                   {q.estimated_days != null && (
                     <p className="mt-0.5 text-xs text-slate-400">Plazo: {q.estimated_days} días</p>
                   )}
+                  {q.status !== "sent" && (
+                    <span className="text-xs font-medium capitalize text-slate-400">{q.status}</span>
+                  )}
                 </div>
-                <AcceptQuoteButton quoteId={q.id} isAccepted={q.status === "accepted"} isDisabled={q.status !== "sent"} />
-                {q.status !== "sent" && (
-                  <span className="text-xs font-medium capitalize text-slate-400">{q.status}</span>
-                )}
+                <div className="flex items-center gap-2">
+                  <AcceptQuoteButton quoteId={q.id} isAccepted={q.status === "accepted"} isDisabled={q.status !== "sent"} />
+                  {isStaff && <DeleteQuoteButton quoteId={q.id} />}
+                </div>
               </div>
             ))
           )}
