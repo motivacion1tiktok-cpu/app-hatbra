@@ -1,4 +1,5 @@
-﻿import Link from "next/link";
+import { DeleteRequestButton } from "./DeleteRequestButton";
+import Link from "next/link";
 import { FolderKanban } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
@@ -75,9 +76,7 @@ export default async function ProyectosPage() {
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600">
                   {r.status}
                 </span>
-                <span className="text-[10px] text-slate-400">
-                  {new Date(r.created_at).toLocaleDateString("es-ES")}
-                </span>
+                <div className="flex items-center gap-2"><span className="text-[10px] text-slate-400">{new Date(r.created_at).toLocaleDateString("es-ES")}</span>{isStaff && <DeleteRequestButton requestId={r.id} />}</div>
               </div>
               <h3 className="mt-3 font-semibold text-slate-900">{r.title}</h3>
               <p className="mt-1 line-clamp-2 text-sm text-slate-500">{r.description}</p>
@@ -91,3 +90,4 @@ export default async function ProyectosPage() {
     </div>
   );
 }
+
