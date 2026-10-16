@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+﻿import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -45,7 +45,7 @@ export default async function ProyectoDetallePage({
     .eq("id", id)
     .maybeSingle();
 
-  // 404 SOLO si la fila no existe de verdad — nunca por un join roto
+  // 404 SOLO si la fila no existe de verdad â€” nunca por un join roto
   if (!request) notFound();
 
   const isOwner = request.client_id === user?.id;
@@ -86,7 +86,7 @@ export default async function ProyectoDetallePage({
         <QuoteForm requestId={request.id} providerName={providerName} />
       )}
 
-      {/* Cliente dueño (o staff): presupuestos recibidos + aceptación */}
+      {/* Cliente dueÃ±o (o staff): presupuestos recibidos + aceptaciÃ³n */}
       {(isOwner || isStaff) && (
         <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="text-lg font-semibold text-slate-900">
@@ -94,12 +94,12 @@ export default async function ProyectoDetallePage({
             <span className="text-sm font-normal text-slate-400">({quotes?.length ?? 0})</span>
             {isStaff && (
               <span className="ml-2 text-xs font-normal text-slate-400">
-                · modo gestión: puedes eliminar presupuestos
+                Â· modo gestiÃ³n: puedes eliminar presupuestos
               </span>
             )}
           </h2>
           {!quotes || quotes.length === 0 ? (
-            <p className="text-sm text-slate-400">Aún no hay presupuestos para esta solicitud.</p>
+            <p className="text-sm text-slate-400">AÃºn no hay presupuestos para esta solicitud.</p>
           ) : (
             quotes.map((q) => (
               <div key={q.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 p-4">
@@ -107,7 +107,7 @@ export default async function ProyectoDetallePage({
                   <p className="font-semibold text-slate-900">{euro(q.total_amount)}</p>
                   {q.description && <p className="text-xs text-slate-500 line-clamp-1">{q.description}</p>}
                   {q.estimated_days != null && (
-                    <p className="mt-0.5 text-xs text-slate-400">Plazo: {q.estimated_days} días</p>
+                    <p className="mt-0.5 text-xs text-slate-400">Plazo: {q.estimated_days} dÃ­as</p>
                   )}
                   {q.status !== "sent" && (
                     <span className="text-xs font-medium capitalize text-slate-400">{q.status}</span>
