@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FilePlus2, FolderKanban, Handshake,
-  MessageSquare, UserCheck, Wrench,
+  MessageSquare, UserCheck, Wrench, ClipboardList,
 } from "lucide-react";
 import type { NavSection, Role } from "./types";
 
@@ -17,6 +17,7 @@ export const NAVIGATION: Record<Role, NavSection[]> = {
       title: "Gestión",
       items: [
         { label: "Resumen", href: "/dashboard", icon: LayoutDashboard, exact: true },
+        { label: "Asignaciones", href: "/dashboard/asignaciones", icon: ClipboardList },
         { label: "Validaciones", href: "/dashboard/validations", icon: UserCheck },
         { label: "Proyectos", href: "/dashboard/proyectos", icon: FolderKanban },
       ],
@@ -27,6 +28,7 @@ export const NAVIGATION: Record<Role, NavSection[]> = {
       title: "Gestión",
       items: [
         { label: "Resumen", href: "/dashboard", icon: LayoutDashboard, exact: true },
+        { label: "Asignaciones", href: "/dashboard/asignaciones", icon: ClipboardList },
         { label: "Validaciones", href: "/dashboard/validations", icon: UserCheck },
         { label: "Proyectos", href: "/dashboard/proyectos", icon: FolderKanban },
       ],
